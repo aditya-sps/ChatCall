@@ -160,7 +160,7 @@ const ChatScreen = () => {
 
   return (
     <View style={{flex: 1, backgroundColor: 'white'}}>
-      <View style={[styles.header, {paddingTop: insets.top}]}>
+      <View style={[styles.header, {paddingTop: insets.top + 10}]}>
         <Text onPress={() => navigation.goBack()}>Back</Text>
         <Text>{data?.name}</Text>
         <Text>Call</Text>
@@ -190,6 +190,7 @@ const ChatScreen = () => {
           value={value}
           onChangeText={text => setValue(text)}
           style={styles.textInput}
+          placeholder="type message..."
         />
         <TouchableOpacity onPress={sendMessage}>
           <Text>Send</Text>
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#d4d4d4',
     flex: 1,
     height: 46,
-    paddingHorizontal: 5,
+    paddingHorizontal: 8,
     fontSize: 16,
     marginRight: 10,
     borderRadius: 6,
