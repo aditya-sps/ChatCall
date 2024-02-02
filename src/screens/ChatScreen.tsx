@@ -31,7 +31,11 @@ const ChatScreen = () => {
   const [messages, setMessages] = useState([]);
   const [newMesssage, setNewMessage] = useState({});
   const keyboardHeight = useKeyboardHeight();
-  const emitter = useRef(new NativeEventEmitter(QB.chat));
+  const emitter = useRef(
+    Platform.OS === 'ios'
+      ? new NativeEventEmitter(QB.chat)
+      : new NativeEventEmitter(),
+  );
   const {userData, userPassword} = useContext(MyContext);
 
   useFocusEffect(
@@ -51,6 +55,7 @@ const ChatScreen = () => {
   useEffect(() => {
     if (Object.keys(newMesssage).length > 0) {
       setMessages([newMesssage, ...messages]);
+      setNewMessage({});
     }
   }, [newMesssage]);
 
@@ -195,7 +200,7 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: '#d4d4d4',
     flex: 1,
-    height: 34,
+    height: 46,
     paddingHorizontal: 5,
     fontSize: 16,
     marginRight: 10,
