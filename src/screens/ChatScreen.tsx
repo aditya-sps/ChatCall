@@ -126,20 +126,23 @@ const ChatScreen = () => {
 
   const sendMessage = () => {
     if (value?.trim()) {
-      const message = {
-        dialogId: data?.id,
-        body: value,
-        saveToHistory: true,
-      };
+      if (currentState === 'connected') {
+        const message = {
+          dialogId: data?.id,
+          body: value,
+          saveToHistory: true,
+        };
 
-      QB.chat
-        .sendMessage(message)
-        .then(function () {
-          setValue('');
-        })
-        .catch(function (error) {
-          console.log('error', error);
-        });
+        QB.chat
+          .sendMessage(message)
+          .then(function () {
+            setValue('');
+          })
+          .catch(function (error) {
+            console.log('error', error);
+          });
+      } else {
+      }
     }
   };
 
