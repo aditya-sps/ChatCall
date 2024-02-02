@@ -30,6 +30,7 @@ const ChatScreen = () => {
   const [value, setValue] = useState('');
   const [messages, setMessages] = useState([]);
   const [newMesssage, setNewMessage] = useState({});
+  const [currentState, setCurrentState] = useState('disconnected');
   const keyboardHeight = useKeyboardHeight();
   const emitter = useRef(
     Platform.OS === 'ios'
@@ -41,13 +42,13 @@ const ChatScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       getMessages(0);
-      createConnection();
+      createConnection(Platform.OS === 'android' ? true : false);
       emitter.current.addListener(
         QB.chat.EVENT_TYPE.RECEIVED_NEW_MESSAGE,
         receivedNewMessage,
       );
       return () => {
-        disconnect();
+        disconnect(false);
       };
     }, []),
   );
@@ -69,7 +70,7 @@ const ChatScreen = () => {
     setNewMessage(payload);
   };
 
-  const createConnection = () => {
+  const createConnection = (reconnect: boolean) => {
     const chatConnectParams = {
       userId: userData?.user?.id,
       password: userPassword,
@@ -78,17 +79,24 @@ const ChatScreen = () => {
       .connect(chatConnectParams)
       .then(function () {
         console.log('Connected');
+        if (reconnect) {
+          disconnect(reconnect);
+        } else {
+          setCurrentState('connected');
+        }
       })
       .catch(function (e) {
         // some error occurred
       });
   };
 
-  const disconnect = () => {
+  const disconnect = (reconnect: boolean) => {
     QB.chat
       .disconnect()
       .then(function () {
         console.log('Disconnected');
+        if (reconnect) createConnection(false);
+        else setCurrentState('disconnected');
       })
       .catch(function (e) {
         // handle error
@@ -117,20 +125,22 @@ const ChatScreen = () => {
   };
 
   const sendMessage = () => {
-    const message = {
-      dialogId: data?.id,
-      body: value,
-      saveToHistory: true,
-    };
+    if (value?.trim()) {
+      const message = {
+        dialogId: data?.id,
+        body: value,
+        saveToHistory: true,
+      };
 
-    QB.chat
-      .sendMessage(message)
-      .then(function () {
-        setValue('');
-      })
-      .catch(function (error) {
-        console.log('error', error);
-      });
+      QB.chat
+        .sendMessage(message)
+        .then(function () {
+          setValue('');
+        })
+        .catch(function (error) {
+          console.log('error', error);
+        });
+    }
   };
 
   const renderItem = ({item}: any) => (
@@ -153,6 +163,11 @@ const ChatScreen = () => {
         <Text>Call</Text>
       </View>
       <View style={{flex: 1}}>
+        <View style={styles.status}>
+          <Text>{`${currentState}${
+            currentState === 'disconnected' ? ' trying to connect' : ''
+          }`}</Text>
+        </View>
         <FlatList
           contentContainerStyle={{paddingHorizontal: 5}}
           inverted
@@ -217,5 +232,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  status: {
+    position: 'absolute',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    alignSelf: 'center',
   },
 });
