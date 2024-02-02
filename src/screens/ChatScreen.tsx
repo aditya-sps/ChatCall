@@ -31,10 +31,16 @@ const ChatScreen = () => {
   const [messages, setMessages] = useState([]);
   const [newMesssage, setNewMessage] = useState({});
   const [currentState, setCurrentState] = useState('disconnected');
+  const [callReady, setCallReady] = useState(false);
   const keyboardHeight = useKeyboardHeight();
   const emitter = useRef(
     Platform.OS === 'ios'
       ? new NativeEventEmitter(QB.chat)
+      : new NativeEventEmitter(),
+  );
+  const callEmitter = useRef(
+    Platform.OS === 'ios'
+      ? new NativeEventEmitter(QB.webrtc)
       : new NativeEventEmitter(),
   );
   const {userData, userPassword} = useContext(MyContext);
@@ -59,6 +65,43 @@ const ChatScreen = () => {
       setNewMessage({});
     }
   }, [newMesssage]);
+
+  useEffect(() => {
+    if (currentState === 'connected') {
+      QB.webrtc
+        .init()
+        .then(function () {
+          /* module is ready for calls processing */
+          setCallReady(true);
+          Object.keys(QB.webrtc.EVENT_TYPE).forEach(key => {
+            emitter.current.addListener(
+              QB.webrtc.EVENT_TYPE[key],
+              callEventHandler,
+            );
+          });
+        })
+        .catch(function (error) {
+          /* handle error */
+          console.log('error', error);
+          setCallReady(false);
+        });
+    } else {
+      setCallReady(false);
+    }
+  }, [currentState]);
+
+  const callEventHandler = event => {
+    const {
+      type, // type of the event (i.e. `@QB/CALL` or `@QB/REJECT`)
+      payload,
+    } = event;
+    console.log('type', type);
+    const {
+      userId, // id of QuickBlox user who initiated this event (if any)
+      session, // current or new session
+    } = payload;
+    // handle as necessary
+  };
 
   const receivedNewMessage = event => {
     const {type, payload} = event;
@@ -146,6 +189,27 @@ const ChatScreen = () => {
     }
   };
 
+  const onCallPress = () => {
+    if (callReady) {
+      const ids = data?.occupantsIds?.filter(
+        item => item !== userData?.user?.id,
+      );
+      const params = {
+        opponentsIds: ids,
+        type: QB.webrtc.RTC_SESSION_TYPE.AUDIO,
+      };
+
+      // QB.webrtc
+      //   .call(params)
+      //   .then(function (session) {
+      //     /* session created */
+      //   })
+      //   .catch(function (e) {
+      //     /* handle error */
+      //   });
+    }
+  };
+
   const renderItem = ({item}: any) => (
     <View
       style={[
@@ -160,10 +224,18 @@ const ChatScreen = () => {
 
   return (
     <View style={{flex: 1, backgroundColor: 'white'}}>
-      <View style={[styles.header, {paddingTop: insets.top + 10}]}>
-        <Text onPress={() => navigation.goBack()}>Back</Text>
+      <View
+        style={[
+          styles.header,
+          {paddingTop: insets.top > 10 ? insets.top : 20},
+        ]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text>Back</Text>
+        </TouchableOpacity>
         <Text>{data?.name}</Text>
-        <Text>Call</Text>
+        <TouchableOpacity onPress={onCallPress}>
+          <Text>Call</Text>
+        </TouchableOpacity>
       </View>
       <View style={{flex: 1}}>
         <View style={styles.status}>
@@ -209,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 18,
     backgroundColor: '#d4d4d4',
-    paddingVertical: 5,
+    paddingVertical: 10,
   },
   inputBottom: {
     flexDirection: 'row',
