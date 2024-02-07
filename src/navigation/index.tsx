@@ -16,10 +16,10 @@ const Navigation = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{headerShown: false}}>
         {Object.keys(userData)?.length > 0 ? (
-          <>
+          <Stack.Group>
             <Stack.Screen name="Home" component={Home} />
             <Stack.Screen name="ChatScreen" component={ChatScreen} />
-          </>
+          </Stack.Group>
         ) : (
           <Stack.Screen name="Login" component={Login} />
         )}

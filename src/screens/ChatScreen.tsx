@@ -33,6 +33,9 @@ const ChatScreen = () => {
   const [currentState, setCurrentState] = useState<
     'connected' | 'disconnected'
   >('disconnected');
+  const [groupState, setGroupState] = useState<'connected' | 'disconnected'>(
+    'disconnected',
+  );
   const [callReady, setCallReady] = useState(false);
   const [callingStatus, setCallingStatus] = useState<
     'disconnected' | 'calling' | 'inProgress' | 'incoming'
@@ -66,7 +69,7 @@ const ChatScreen = () => {
       );
       return () => {
         disconnect(false);
-        if (data?.type === 2) {
+        if (data?.type === 2 && groupState === 'connected') {
           disconnectGroupChat();
         }
       };
@@ -82,7 +85,6 @@ const ChatScreen = () => {
 
   useEffect(() => {
     if (currentState === 'connected') {
-      createGroupConnection();
       QB.webrtc
         .init()
         .then(function () {
@@ -223,6 +225,7 @@ const ChatScreen = () => {
           disconnect(reconnect);
         } else {
           setCurrentState('connected');
+          createGroupConnection();
         }
       })
       .catch(function (e) {
@@ -235,7 +238,9 @@ const ChatScreen = () => {
 
     QB.chat
       .joinDialog(joinDialogParam)
-      .then(function () {})
+      .then(function () {
+        setGroupState('connected');
+      })
       .catch(function (e) {
         console.log('GroupConnectionError', e);
       });
@@ -259,7 +264,9 @@ const ChatScreen = () => {
 
     QB.chat
       .leaveDialog(leaveDialogParam)
-      .then(function () {})
+      .then(function () {
+        setGroupState('disconnected');
+      })
       .catch(function (e) {
         console.log('GroupDisconnectionError', e);
       });
@@ -442,9 +449,13 @@ const ChatScreen = () => {
           <Text>Back</Text>
         </TouchableOpacity>
         <Text>{data?.name}</Text>
-        <TouchableOpacity onPress={onCallPress}>
-          <Text>Call</Text>
-        </TouchableOpacity>
+        {data?.type !== 2 ? (
+          <TouchableOpacity onPress={onCallPress}>
+            <Text>Call</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{width: 30}} />
+        )}
       </View>
       <View style={{flex: 1}}>
         <View style={styles.status}>
