@@ -58,7 +58,7 @@ const ChatScreen = () => {
       : new NativeEventEmitter(),
   );
   const {userData, userPassword} = useContext(MyContext);
-  console.log('data', data);
+
   useFocusEffect(
     React.useCallback(() => {
       getMessages(0);
