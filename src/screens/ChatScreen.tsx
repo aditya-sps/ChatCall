@@ -66,6 +66,9 @@ const ChatScreen = () => {
       );
       return () => {
         disconnect(false);
+        if (data?.type === 2) {
+          disconnectGroupChat();
+        }
       };
     }, []),
   );
@@ -79,6 +82,7 @@ const ChatScreen = () => {
 
   useEffect(() => {
     if (currentState === 'connected') {
+      createGroupConnection();
       QB.webrtc
         .init()
         .then(function () {
@@ -166,6 +170,7 @@ const ChatScreen = () => {
       session, // current or new session
       state, // new peerconnection state (one of QB.webrtc.RTC_PEER_CONNECTION_STATE)
     } = payload;
+    console.log('state', state);
     switch (state) {
       case QB.webrtc.RTC_PEER_CONNECTION_STATE.NEW:
         setCallingStatus('inProgress');
@@ -225,6 +230,17 @@ const ChatScreen = () => {
       });
   };
 
+  const createGroupConnection = () => {
+    const joinDialogParam = {dialogId: data?.id};
+
+    QB.chat
+      .joinDialog(joinDialogParam)
+      .then(function () {})
+      .catch(function (e) {
+        console.log('GroupConnectionError', e);
+      });
+  };
+
   const disconnect = (reconnect: boolean) => {
     QB.chat
       .disconnect()
@@ -235,6 +251,17 @@ const ChatScreen = () => {
       })
       .catch(function (e) {
         // handle error
+      });
+  };
+
+  const disconnectGroupChat = () => {
+    const leaveDialogParam = {dialogId: data?.id};
+
+    QB.chat
+      .leaveDialog(leaveDialogParam)
+      .then(function () {})
+      .catch(function (e) {
+        console.log('GroupDisconnectionError', e);
       });
   };
 

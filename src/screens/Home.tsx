@@ -19,10 +19,11 @@ const Home = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      const createDialogParam = {
-        type: QB.chat.DIALOG_TYPE.CHAT,
-        occupantsIds: [139420686],
-      };
+      // const createDialogParam = {
+      //   type: QB.chat.DIALOG_TYPE.GROUP_CHAT,
+      //   name: 'Group12',
+      //   occupantsIds: [139377274, 139420686],
+      // };
 
       // QB.chat
       //   .createDialog(createDialogParam)
