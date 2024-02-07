@@ -58,7 +58,7 @@ const ChatScreen = () => {
       : new NativeEventEmitter(),
   );
   const {userData, userPassword} = useContext(MyContext);
-
+  console.log('data', data);
   useFocusEffect(
     React.useCallback(() => {
       getMessages(0);
@@ -225,7 +225,9 @@ const ChatScreen = () => {
           disconnect(reconnect);
         } else {
           setCurrentState('connected');
-          createGroupConnection();
+          if (data?.type === 2) {
+            createGroupConnection();
+          }
         }
       })
       .catch(function (e) {
