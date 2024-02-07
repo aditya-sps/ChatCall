@@ -20,6 +20,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import QB from 'quickblox-react-native-sdk';
+import WebRTCView from 'quickblox-react-native-sdk/RTCView';
 import {MyContext} from '../../App';
 
 const ChatScreen = () => {
@@ -68,6 +69,9 @@ const ChatScreen = () => {
         receivedNewMessage,
       );
       return () => {
+        if (callingStatus !== 'disconnected') {
+          endCall();
+        }
         disconnect(false);
         if (data?.type === 2 && groupState === 'connected') {
           disconnectGroupChat();
@@ -418,9 +422,18 @@ const ChatScreen = () => {
             marginTop: 24,
           }}>
           {callingStatus === 'calling' || callingStatus === 'inProgress' ? (
-            <TouchableOpacity style={styles.button} onPress={endCall}>
-              <Text style={styles.actionText}>END</Text>
-            </TouchableOpacity>
+            <View style={{width: '100%', alignItems: 'center'}}>
+              {callingStatus === 'inProgress' && (
+                <WebRTCView
+                  sessionId={callSession}
+                  style={styles.video} // add styles as necessary
+                  userId={userData?.user?.id} // your user's Id for local video or occupantId for remote
+                />
+              )}
+              <TouchableOpacity style={styles.button} onPress={endCall}>
+                <Text style={styles.actionText}>END</Text>
+              </TouchableOpacity>
+            </View>
           ) : callingStatus === 'incoming' ? (
             <>
               <TouchableOpacity
@@ -569,5 +582,10 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: 'white',
+  },
+  video: {
+    height: 5,
+    width: '20%',
+    marginBottom: 5,
   },
 });
