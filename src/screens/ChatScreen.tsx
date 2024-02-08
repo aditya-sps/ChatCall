@@ -29,6 +29,9 @@ const ChatScreen = () => {
   const insets = useSafeAreaInsets();
   const {data} = route?.params;
   const [value, setValue] = useState('');
+  const [lastMessageStatus, setLastMessageStatus] = useState<
+    '' | 'sent' | 'seen'
+  >('');
   const [messages, setMessages] = useState([]);
   const [newMesssage, setNewMessage] = useState({});
   const [currentState, setCurrentState] = useState<
@@ -68,6 +71,7 @@ const ChatScreen = () => {
         QB.chat.EVENT_TYPE.RECEIVED_NEW_MESSAGE,
         receivedNewMessage,
       );
+      emitter.current.addListener(QB.chat.EVENT_TYPE.MESSAGE_READ, messageRead);
       return () => {
         if (callingStatus !== 'disconnected') {
           endCall();
@@ -114,6 +118,13 @@ const ChatScreen = () => {
           console.log('error', error);
           setCallReady(false);
         });
+      const lastMessage = messages?.[0];
+      if (
+        lastMessage?.senderId !== userData?.user?.id &&
+        lastMessage?.readIds?.length < 2
+      ) {
+        markMessageAsRead(lastMessage);
+      }
     } else {
       setCallReady(false);
     }
@@ -214,6 +225,44 @@ const ChatScreen = () => {
 
     // setMessages([payload, ...messages]);
     setNewMessage(payload);
+    if (payload?.senderId !== userData?.user?.id) {
+      markMessageAsRead(payload);
+    }
+  };
+
+  const markMessageAsRead = message => {
+    const markMessageReadParams = {
+      message: {
+        id: message?.id,
+        dialogId: data?.id,
+        senderId: message?.senderId,
+      },
+    };
+    QB.chat
+      .markMessageRead(markMessageReadParams)
+      .then(function () {
+        /* marked as "read" successfully */
+        console.log('Message read successfull');
+      })
+      .catch(function (e) {
+        /* handle error */
+        console.log('Read error', e);
+      });
+  };
+
+  const messageRead = event => {
+    const {
+      type, // name of the event (the one you've subscribed for)
+      payload, // event data
+    } = event;
+    const {
+      dialogId, // in dialog with id specified
+      messageId, // message with id specified
+      userId, // was delivered to user with id specified
+    } = payload;
+    // handle as necessary
+    const lastMessage = messages[0];
+    setLastMessageStatus('seen');
   };
 
   const createConnection = (reconnect: boolean) => {
@@ -293,6 +342,15 @@ const ChatScreen = () => {
       .getDialogMessages(getDialogMessagesParams)
       .then(result => {
         setMessages(result?.messages);
+        const lastMessage = result?.messages?.[0];
+        if (
+          lastMessage?.senderId === userData?.user?.id &&
+          lastMessage?.readIds?.length >= 2
+        ) {
+          setLastMessageStatus('seen');
+        } else {
+          setLastMessageStatus('sent');
+        }
       })
       .catch(error => {
         console.log('error', error);
@@ -312,6 +370,7 @@ const ChatScreen = () => {
           .sendMessage(message)
           .then(function () {
             setValue('');
+            setLastMessageStatus('sent');
           })
           .catch(function (error) {
             console.log('error', error);
@@ -398,15 +457,23 @@ const ChatScreen = () => {
       });
   };
 
-  const renderItem = ({item}: any) => (
+  const renderItem = ({item, index}: any) => (
     <View
-      style={[
-        styles.message,
-        item?.senderId === userData?.user?.id
-          ? {alignSelf: 'flex-end'}
-          : {alignSelf: 'flex-start'},
-      ]}>
-      <Text style={styles.text}>{item?.body}</Text>
+      style={{
+        marginBottom: 10,
+      }}>
+      <View
+        style={[
+          styles.message,
+          item?.senderId === userData?.user?.id
+            ? {alignSelf: 'flex-end'}
+            : {alignSelf: 'flex-start'},
+        ]}>
+        <Text style={styles.text}>{item?.body}</Text>
+      </View>
+      {index === 0 && item?.senderId === userData?.user?.id && (
+        <Text style={styles.sentStatus}>{lastMessageStatus}</Text>
+      )}
     </View>
   );
 
@@ -535,7 +602,6 @@ const styles = StyleSheet.create({
   },
   message: {
     backgroundColor: 'green',
-    marginBottom: 10,
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderRadius: 6,
@@ -587,5 +653,9 @@ const styles = StyleSheet.create({
     height: 5,
     width: '20%',
     marginBottom: 5,
+  },
+  sentStatus: {
+    textAlign: 'right',
+    marginRight: 5,
   },
 });
