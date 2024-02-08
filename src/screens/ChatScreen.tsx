@@ -130,6 +130,22 @@ const ChatScreen = () => {
     }
   }, [currentState]);
 
+  useEffect(() => {
+    if (lastMessageStatus === 'seen') {
+      let new_messages = messages.map(item => {
+        if (
+          item?.readIds?.length < data?.occupantsIds?.length &&
+          data?.type === 3
+        ) {
+          return {...item, readIds: data?.occupantsIds};
+        } else {
+          return item;
+        }
+      });
+      setMessages(new_messages);
+    }
+  }, [lastMessageStatus]);
+
   const callEventHandler = event => {
     const {
       type, // type of the event (i.e. `@QB/CALL` or `@QB/REJECT`)
@@ -141,7 +157,7 @@ const ChatScreen = () => {
     } = payload;
     // handle as necessary
     setCallSession(session?.id);
-    console.log('type', type, userData?.user);
+
     switch (type) {
       case QB.webrtc.EVENT_TYPE.CALL:
         setCallingStatus('incoming');
@@ -187,7 +203,7 @@ const ChatScreen = () => {
       session, // current or new session
       state, // new peerconnection state (one of QB.webrtc.RTC_PEER_CONNECTION_STATE)
     } = payload;
-    console.log('state', state);
+
     switch (state) {
       case QB.webrtc.RTC_PEER_CONNECTION_STATE.NEW:
         setCallingStatus('inProgress');
@@ -457,25 +473,31 @@ const ChatScreen = () => {
       });
   };
 
-  const renderItem = ({item, index}: any) => (
-    <View
-      style={{
-        marginBottom: 10,
-      }}>
+  const renderItem = ({item, index}: any) => {
+    const readStatus =
+      item?.readIds?.length === data?.occupantsIds?.length
+        ? 'seen'
+        : lastMessageStatus;
+    return (
       <View
-        style={[
-          styles.message,
-          item?.senderId === userData?.user?.id
-            ? {alignSelf: 'flex-end'}
-            : {alignSelf: 'flex-start'},
-        ]}>
-        <Text style={styles.text}>{item?.body}</Text>
+        style={{
+          marginBottom: 10,
+        }}>
+        <View
+          style={[
+            styles.message,
+            item?.senderId === userData?.user?.id
+              ? {alignSelf: 'flex-end'}
+              : {alignSelf: 'flex-start'},
+          ]}>
+          <Text style={styles.text}>{item?.body}</Text>
+        </View>
+        {item?.senderId === userData?.user?.id && (
+          <Text style={styles.sentStatus}>{readStatus}</Text>
+        )}
       </View>
-      {index === 0 && item?.senderId === userData?.user?.id && (
-        <Text style={styles.sentStatus}>{lastMessageStatus}</Text>
-      )}
-    </View>
-  );
+    );
+  };
 
   const CallUI = () => {
     return (
