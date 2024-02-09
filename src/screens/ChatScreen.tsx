@@ -29,9 +29,10 @@ const ChatScreen = () => {
   const insets = useSafeAreaInsets();
   const {data} = route?.params;
   const [value, setValue] = useState('');
-  const [lastMessageStatus, setLastMessageStatus] = useState<
-    '' | 'sent' | 'seen'
-  >('');
+  const [lastMessageStatus, setLastMessageStatus] = useState<{
+    status: '' | 'sent' | 'seen';
+    userId: number | null;
+  }>({status: '', userId: null});
   const [messages, setMessages] = useState([]);
   const [newMesssage, setNewMessage] = useState({});
   const [currentState, setCurrentState] = useState<
@@ -121,7 +122,7 @@ const ChatScreen = () => {
       const lastMessage = messages?.[0];
       if (
         lastMessage?.senderId !== userData?.user?.id &&
-        lastMessage?.readIds?.length < 2
+        lastMessage?.readIds?.length < data?.occupantsIds?.length
       ) {
         markMessageAsRead(lastMessage);
       }
@@ -131,13 +132,23 @@ const ChatScreen = () => {
   }, [currentState]);
 
   useEffect(() => {
-    if (lastMessageStatus === 'seen') {
+    if (lastMessageStatus?.status === 'seen') {
       let new_messages = messages.map(item => {
         if (
-          item?.readIds?.length < data?.occupantsIds?.length &&
-          data?.type === 3
+          data?.type === 3 &&
+          item?.readIds?.length < data?.occupantsIds?.length
         ) {
           return {...item, readIds: data?.occupantsIds};
+        } else if (
+          data?.type === 2 &&
+          item?.readIds?.length < data?.occupantsIds?.length &&
+          lastMessageStatus?.userId &&
+          !item?.readIds?.includes(lastMessageStatus?.userId)
+        ) {
+          return {
+            ...item,
+            readIds: [...item?.readIds, lastMessageStatus?.userId],
+          };
         } else {
           return item;
         }
@@ -277,8 +288,7 @@ const ChatScreen = () => {
       userId, // was delivered to user with id specified
     } = payload;
     // handle as necessary
-    const lastMessage = messages[0];
-    setLastMessageStatus('seen');
+    setLastMessageStatus({status: 'seen', userId: userId});
   };
 
   const createConnection = (reconnect: boolean) => {
@@ -363,9 +373,9 @@ const ChatScreen = () => {
           lastMessage?.senderId === userData?.user?.id &&
           lastMessage?.readIds?.length >= 2
         ) {
-          setLastMessageStatus('seen');
+          setLastMessageStatus({userId: null, status: 'seen'});
         } else {
-          setLastMessageStatus('sent');
+          setLastMessageStatus({userId: null, status: 'sent'});
         }
       })
       .catch(error => {
@@ -386,7 +396,7 @@ const ChatScreen = () => {
           .sendMessage(message)
           .then(function () {
             setValue('');
-            setLastMessageStatus('sent');
+            setLastMessageStatus({userId: null, status: 'sent'});
           })
           .catch(function (error) {
             console.log('error', error);
@@ -477,7 +487,9 @@ const ChatScreen = () => {
     const readStatus =
       item?.readIds?.length === data?.occupantsIds?.length
         ? 'seen'
-        : lastMessageStatus;
+        : data?.type === 2 && item?.readIds?.length > 1
+        ? 'partly seen'
+        : 'sent';
     return (
       <View
         style={{
