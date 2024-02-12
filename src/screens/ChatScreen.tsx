@@ -41,25 +41,10 @@ const ChatScreen = () => {
   const [groupState, setGroupState] = useState<'connected' | 'disconnected'>(
     'disconnected',
   );
-  const [callReady, setCallReady] = useState(false);
-  const [callingStatus, setCallingStatus] = useState<
-    'disconnected' | 'calling' | 'inProgress' | 'incoming'
-  >('disconnected');
-  const [callSession, setCallSession] = useState('');
   const keyboardHeight = useKeyboardHeight();
   const emitter = useRef(
     Platform.OS === 'ios'
       ? new NativeEventEmitter(QB.chat)
-      : new NativeEventEmitter(),
-  );
-  const callEmitter = useRef(
-    Platform.OS === 'ios'
-      ? new NativeEventEmitter(QB.webrtc)
-      : new NativeEventEmitter(),
-  );
-  const callEmitterPeerChange = useRef(
-    Platform.OS === 'ios'
-      ? new NativeEventEmitter(QB.webrtc)
       : new NativeEventEmitter(),
   );
   const {userData, userPassword} = useContext(MyContext);
@@ -74,9 +59,6 @@ const ChatScreen = () => {
       );
       emitter.current.addListener(QB.chat.EVENT_TYPE.MESSAGE_READ, messageRead);
       return () => {
-        if (callingStatus !== 'disconnected') {
-          endCall();
-        }
         disconnect(false);
         if (data?.type === 2 && groupState === 'connected') {
           disconnectGroupChat();
@@ -94,31 +76,6 @@ const ChatScreen = () => {
 
   useEffect(() => {
     if (currentState === 'connected') {
-      QB.webrtc
-        .init()
-        .then(function () {
-          /* module is ready for calls processing */
-          setCallReady(true);
-          Object.keys(QB.webrtc.EVENT_TYPE)
-            ?.filter(
-              key => key !== QB.webrtc.EVENT_TYPE.PEER_CONNECTION_STATE_CHANGED,
-            )
-            .forEach(key => {
-              callEmitter.current.addListener(
-                QB.webrtc.EVENT_TYPE[key],
-                callEventHandler,
-              );
-            });
-          callEmitterPeerChange.current.addListener(
-            QB.webrtc.EVENT_TYPE.PEER_CONNECTION_STATE_CHANGED,
-            peerConnectionChange,
-          );
-        })
-        .catch(function (error) {
-          /* handle error */
-          console.log('error', error);
-          setCallReady(false);
-        });
       const lastMessage = messages?.[0];
       if (
         lastMessage?.senderId !== userData?.user?.id &&
@@ -126,8 +83,6 @@ const ChatScreen = () => {
       ) {
         markMessageAsRead(lastMessage);
       }
-    } else {
-      setCallReady(false);
     }
   }, [currentState]);
 
@@ -156,93 +111,6 @@ const ChatScreen = () => {
       setMessages(new_messages);
     }
   }, [lastMessageStatus]);
-
-  const callEventHandler = event => {
-    const {
-      type, // type of the event (i.e. `@QB/CALL` or `@QB/REJECT`)
-      payload,
-    } = event;
-    const {
-      userId, // id of QuickBlox user who initiated this event (if any)
-      session, // current or new session
-    } = payload;
-    // handle as necessary
-    setCallSession(session?.id);
-
-    switch (type) {
-      case QB.webrtc.EVENT_TYPE.CALL:
-        setCallingStatus('incoming');
-        break;
-
-      case QB.webrtc.EVENT_TYPE.ACCEPT:
-        setCallingStatus('inProgress');
-        break;
-
-      case QB.webrtc.EVENT_TYPE.REJECT:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      case QB.webrtc.EVENT_TYPE.HANG_UP:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      case QB.webrtc.EVENT_TYPE.NOT_ANSWER:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      case QB.webrtc.EVENT_TYPE.CALL_END:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      default:
-        setCallingStatus('disconnected');
-        break;
-    }
-  };
-
-  const peerConnectionChange = event => {
-    const {
-      type, // type of the event (i.e. `@QB/CALL` or `@QB/REJECT`)
-      payload,
-    } = event;
-    const {
-      userId, // id of QuickBlox user who initiated this event (if any)
-      session, // current or new session
-      state, // new peerconnection state (one of QB.webrtc.RTC_PEER_CONNECTION_STATE)
-    } = payload;
-
-    switch (state) {
-      case QB.webrtc.RTC_PEER_CONNECTION_STATE.NEW:
-        setCallingStatus('inProgress');
-        break;
-
-      case QB.webrtc.RTC_PEER_CONNECTION_STATE.CONNECTED:
-        setCallingStatus('inProgress');
-        break;
-
-      case QB.webrtc.RTC_PEER_CONNECTION_STATE.FAILED:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      case QB.webrtc.RTC_PEER_CONNECTION_STATE.DISCONNECTED:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      case QB.webrtc.RTC_PEER_CONNECTION_STATE.CLOSED:
-        setCallingStatus('disconnected');
-        setCallSession('');
-        break;
-
-      default:
-        break;
-    }
-  };
 
   const receivedNewMessage = event => {
     const {type, payload} = event;
@@ -406,83 +274,6 @@ const ChatScreen = () => {
     }
   };
 
-  const onCallPress = () => {
-    if (callReady) {
-      const ids = data?.occupantsIds?.filter(
-        item => item !== userData?.user?.id,
-      );
-      const params = {
-        opponentsIds: ids,
-        type: QB.webrtc.RTC_SESSION_TYPE.AUDIO,
-      };
-
-      QB.webrtc
-        .call(params)
-        .then(function (session) {
-          /* session created */
-          setCallingStatus('calling');
-          setCallSession(session?.id);
-        })
-        .catch(function (e) {
-          /* handle error */
-        });
-    }
-  };
-
-  const acceptCall = () => {
-    console.log('callSession', callSession);
-    const acceptParams = {
-      sessionId: callSession,
-    };
-
-    QB.webrtc
-      .accept(acceptParams)
-      .then(function (session) {
-        /* handle session */
-        setCallingStatus('inProgress');
-      })
-      .catch(function (e) {
-        /* handle error */
-        console.log('acceptCallError', e);
-      });
-  };
-
-  const rejectCall = () => {
-    const rejectParams = {
-      sessionId: callSession,
-    };
-
-    QB.webrtc
-      .reject(rejectParams)
-      .then(function (session) {
-        /* handle session */
-        setCallingStatus('disconnected');
-        setCallSession('');
-      })
-      .catch(function (e) {
-        /* handle error */
-        console.log('rejectCallError', e);
-      });
-  };
-
-  const endCall = () => {
-    const hangUpParams = {
-      sessionId: callSession,
-    };
-
-    QB.webrtc
-      .hangUp(hangUpParams)
-      .then(function (session) {
-        /* handle session */
-        setCallingStatus('disconnected');
-        setCallSession('');
-      })
-      .catch(function (e) {
-        /* handle error */
-        console.log('endCallError', e);
-      });
-  };
-
   const renderItem = ({item, index}: any) => {
     const readStatus =
       item?.readIds?.length === data?.occupantsIds?.length
@@ -511,49 +302,6 @@ const ChatScreen = () => {
     );
   };
 
-  const CallUI = () => {
-    return (
-      <View style={styles.callUI}>
-        <Text style={styles.userName}>{data?.name}</Text>
-        <Text style={styles.callStatus}>{`Status: ${callingStatus}`}</Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'center',
-            marginTop: 24,
-          }}>
-          {callingStatus === 'calling' || callingStatus === 'inProgress' ? (
-            <View style={{width: '100%', alignItems: 'center'}}>
-              {callingStatus === 'inProgress' && (
-                <WebRTCView
-                  sessionId={callSession}
-                  style={styles.video} // add styles as necessary
-                  userId={userData?.user?.id} // your user's Id for local video or occupantId for remote
-                />
-              )}
-              <TouchableOpacity style={styles.button} onPress={endCall}>
-                <Text style={styles.actionText}>END</Text>
-              </TouchableOpacity>
-            </View>
-          ) : callingStatus === 'incoming' ? (
-            <>
-              <TouchableOpacity
-                style={[styles.button, {marginRight: 10}]}
-                onPress={acceptCall}>
-                <Text style={styles.actionText}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, {marginLeft: 10}]}
-                onPress={rejectCall}>
-                <Text style={styles.actionText}>Reject</Text>
-              </TouchableOpacity>
-            </>
-          ) : null}
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={{flex: 1, backgroundColor: 'white'}}>
       <View
@@ -565,13 +313,7 @@ const ChatScreen = () => {
           <Text>Back</Text>
         </TouchableOpacity>
         <Text>{data?.name}</Text>
-        {data?.type !== 2 ? (
-          <TouchableOpacity onPress={onCallPress}>
-            <Text>Call</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{width: 30}} />
-        )}
+        <View style={{width: 30}} />
       </View>
       <View style={{flex: 1}}>
         <View style={styles.status}>
@@ -604,7 +346,6 @@ const ChatScreen = () => {
           <Text>Send</Text>
         </TouchableOpacity>
       </View>
-      {callingStatus !== 'disconnected' && <CallUI />}
     </View>
   );
 };
